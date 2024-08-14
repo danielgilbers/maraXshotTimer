@@ -39,18 +39,28 @@ bool HeatDisplayToggle = false;
 int tt = 1;
 
 //Mara Data
-String maraData[7];
+char* maraData[7];
 
 //Instances
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 SoftwareSerial mySerial(D5, D6, INVERSE_LOGIC);  // Rx, Tx, Inverse_Logic
 
 void setup() {
-    // Setup Serial
+  /*
+  // Mock Data
+  maraData[0] = "C1.12";  // Coffee Mode (C) or SteamMode (V) & Software Version // "+" in case of Mara X V2 Steam Mode
+  maraData[1] = "116";    // current steam temperature (Celsisus)
+  maraData[2] = "124";    // target steam temperature (Celsisus)
+  maraData[3] = "093";    // current hx temperature (Celsisus)
+  maraData[4] = "0840";   // countdown for 'boost-mode'
+  maraData[5] = "1";      // heating element on or off
+  maraData[6] = "1";      // pump on or off
+*/
+  // Setup Serial
   Serial.begin(9600);    // Serial Monitor
   mySerial.begin(9600);  // MaraX Serial Interface
 
-  Wire.setWireTimeout(2000, true);  //timeout value in uSec - SBWire uses 100 uSec, so 1000 should be OK
+  //Wire.setWireTimeout(3000, true);  //timeout value in uSec - SBWire uses 100 uSec, so 1000 should be OK
 
   // Setup Display
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -78,22 +88,21 @@ void getMaraData() {
     5)      1     heating element on or off
     6)      0     pump on or off
   */
-  while (mySerial.available()) {        // true, as long there are chrs in the Rx Buffer
-    isMaraOff = false;                  // Mara is not off
-    serialTimeout = millis();           // save current time
-    char rcv = mySerial.read();         // read next chr
-    if (rcv != '\n')                    // test if not CR
-      buffer[bufferIndex++] = rcv;      // add to buffer and increase counter
-    else {                              // CR received = EOM
-      bufferIndex = 0;                  // set buffer index to 0
+  while (mySerial.available()) {    // true, as long there are chrs in the Rx Buffer
+    isMaraOff = false;              // Mara is not off
+    serialTimeout = millis();       // save current time
+    char rcv = mySerial.read();     // read next chr
+    if (rcv != '\n')                // test if not CR
+      buffer[bufferIndex++] = rcv;  // add to buffer and increase counter
+    else {                          // CR received = EOM
+      bufferIndex = 0;              // set buffer index to 0
       char* rest = buffer;
-      Serial.println(rest);           // print buffer on serial monitor
-      char* ptr; // = strtok_r(buffer, ",");  // Split String into Tokens with ',' as delimiter
+      Serial.println(rest);  // print buffer on serial monitor
+      char* ptr;  // = strtok_r(buffer, ",");  // Split String into Tokens with ',' as delimiter
       int idx = 0;
-      Serial.println("RAW:"); 
+      //Serial.println("RAW:");
       while ((ptr = strtok_r(rest, ",", &rest))) {
-        maraData[idx++] = String(ptr);
-        //Serial.println(ptr); 
+        maraData[idx++] = ptr;
       }
     }
   }
@@ -107,15 +116,7 @@ void getMaraData() {
 
 // -----------------------------------------------------------
 void detectChanges() {
-  if (maraData[6] == '1') {   // [6] == 1 is Flag for Pump ON
-    if (!timerStarted) {            // Timer is not started
-      timerStartMillis = millis();  // Save current time
-      timerStarted = true;          // Set Timer was started Flag
-      Serial.println("Pump ON");    // Message for Serial Monitor
-    }
-  }
-
-  if (maraData[6] == '0') {  // [6] == 0 is Flag for Pump OFF
+  if (maraData[6][0] == '0') {  // [6] == 0 is Flag for Pump OFF
     if (timerStarted) {            // Check if Timer started Flag is set
       if (timerStopMillis == 0) {  // Save current time
         timerStopMillis = millis();
@@ -133,6 +134,11 @@ void detectChanges() {
       }
     }
   } else {
+    if (!timerStarted) {            // Timer is not started
+      timerStartMillis = millis();  // Save current time
+      timerStarted = true;          // Set Timer was started Flag
+      Serial.println("Pump ON");    // Message for Serial Monitor
+    }
     timerStopMillis = 0;
   }
 }
@@ -190,7 +196,7 @@ void updateView() {
       display.drawLine(66, 14, 66, 64, WHITE);
 
       //Boiler
-      if (maraData[5] == '1') {  // Heater Flag is set
+      if (maraData[5][0] == '1') {  // Heater Flag is set
         display.setCursor(13, 0);
         display.setTextSize(1);
         display.print("Heatup");  // Print Message on Screen
@@ -207,7 +213,7 @@ void updateView() {
       }
 
       //Draw machine mode
-      if (maraData[0] == "C") {  // [0] = Mode & Version number - Check first Character if "C"
+      if (maraData[0][0] == 'C') {  // [0] = Mode & Version number - Check first Character if "C"
         // Coffee mode
         display.drawBitmap(115, 0, coffeeCup12, 12, 12, WHITE);  // Draw Coffee Cup Icon upper right
       } else {
@@ -224,13 +230,13 @@ void displayModule(unsigned int data) {
   if (data == 1) {
     position = 78;
   }
-  if (maraData[data] == '100') {  // [3] = Mara Hx temperature ... taking care of 2 or 3 digit value display
-    display.setCursor(position + 10, 50);
-  } else {
+  if (atoi(maraData[data]) >= 100) {  // [3] = Mara Hx temperature ... taking care of 2 or 3 digit value display
     display.setCursor(position, 50);
+  } else {
+    display.setCursor(position + 10, 50);
   }
   display.setTextSize(2);
-  display.print(maraData[data]);
+  display.print(atoi(maraData[data]));
   display.setTextSize(1);
   display.print((char)247);
   display.print("C");
@@ -238,29 +244,11 @@ void displayModule(unsigned int data) {
 // -----------------------------------------------------------
 // Main Loop
 void loop() {
-  /*
-  // Mock Data
-  maraData[0] = "C1.12";  // Coffee Mode (C) or SteamMode (V) & Software Version // "+" in case of Mara X V2 Steam Mode
-  maraData[1] = "116";    // current steam temperature (Celsisus)
-  maraData[2] = "124";    // target steam temperature (Celsisus)
-  maraData[3] = "093";    // current hx temperature (Celsisus)
-  maraData[4] = "0840";   // countdown for 'boost-mode'
-  maraData[5] = "1";      // heating element on or off
-  maraData[6] = "0";      // pump on or off
-*/
   // refresh every interval
   if (millis() - previousMillis >= interval) {
     previousMillis = millis();
     getMaraData();
     detectChanges();
     updateView();
-    Serial.println("Data: ");
-    Serial.println(maraData[0]);
-    Serial.println(maraData[1]);
-    Serial.println(maraData[2]);
-    Serial.println(maraData[3]);
-    Serial.println(maraData[4]);
-    Serial.println(maraData[5]);
-    Serial.println(maraData[6]);
   }
 }
