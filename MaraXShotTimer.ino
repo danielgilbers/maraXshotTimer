@@ -55,12 +55,10 @@ void setup() {
   maraData[4] = "0840";   // countdown for 'boost-mode'
   maraData[5] = "1";      // heating element on or off
   maraData[6] = "1";      // pump on or off
-*/
+  */
   // Setup Serial
   Serial.begin(9600);    // Serial Monitor
   mySerial.begin(9600);  // MaraX Serial Interface
-
-  //Wire.setWireTimeout(3000, true);  //timeout value in uSec - SBWire uses 100 uSec, so 1000 should be OK
 
   // Setup Display
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -100,7 +98,6 @@ void getMaraData() {
       Serial.println(rest);  // print buffer on serial monitor
       char* ptr;  // = strtok_r(buffer, ",");  // Split String into Tokens with ',' as delimiter
       int idx = 0;
-      //Serial.println("RAW:");
       while ((ptr = strtok_r(rest, ",", &rest))) {
         maraData[idx++] = ptr;
       }
@@ -110,7 +107,6 @@ void getMaraData() {
   if (millis() - serialTimeout > 999) {  // are there 1000ms passed after last chr rexeived?
     isMaraOff = true;                    // Mara is off
     serialTimeout = millis();
-    //mySerial.write(0x11);
   }
 }
 
