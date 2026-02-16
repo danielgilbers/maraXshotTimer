@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Daniel Gilbers
+/* Copyright (C) 2026 Daniel Gilbers
 
 */
 
@@ -48,7 +48,7 @@ SoftwareSerial mySerial(D5, D6, INVERSE_LOGIC);  // Rx, Tx, Inverse_Logic
 void setup() {
   /*
   // Mock Data
-  maraData[0] = "C1.12";  // Coffee Mode (C) or SteamMode (V) & Software Version // "+" in case of Mara X V2 Steam Mode
+  maraData[0] = "C1.12";  // Coffee Mode (V1: 'C', V2: '+') or Steam Mode (V1: 'V', V2: 'C') & Software version
   maraData[1] = "116";    // current steam temperature (Celsisus)
   maraData[2] = "124";    // target steam temperature (Celsisus)
   maraData[3] = "093";    // current hx temperature (Celsisus)
@@ -77,7 +77,7 @@ void getMaraData() {
     Example Data: C1.12,116,124,093,0840,1,05\n every ~400-500ms
     Length: 27
     [Pos] [Data] [Describtion]
-    0)      C     Coffee Mode (C) or SteamMode (V) // "+" in case of Mara X V2 Steam Mode
+    0)      C     Coffee Mode (V1: 'C', V2: '+') or SteamMode (V1: 'V', V2: 'C')
     -       1.12  Software Version
     1)      116   current steam temperature (Celsisus)
     2)      124   target steam temperature (Celsisus)
@@ -96,7 +96,7 @@ void getMaraData() {
       bufferIndex = 0;              // set buffer index to 0
       char* rest = buffer;
       Serial.println(rest);  // print buffer on serial monitor
-      char* ptr;  // = strtok_r(buffer, ",");  // Split String into Tokens with ',' as delimiter
+      char* ptr;             // = strtok_r(buffer, ",");  // Split String into Tokens with ',' as delimiter
       int idx = 0;
       while ((ptr = strtok_r(rest, ",", &rest))) {
         maraData[idx++] = ptr;
@@ -112,7 +112,7 @@ void getMaraData() {
 
 // -----------------------------------------------------------
 void detectChanges() {
-  if (maraData[6][0] == '0') {  // [6] == 0 is Flag for Pump OFF
+  if (maraData[6][0] == '0') {     // [6] == 0 is Flag for Pump OFF
     if (timerStarted) {            // Check if Timer started Flag is set
       if (timerStopMillis == 0) {  // Save current time
         timerStopMillis = millis();
@@ -209,7 +209,7 @@ void updateView() {
       }
 
       //Draw machine mode
-      if (maraData[0][0] == 'C') {  // [0] = Mode & Version number - Check first Character if "C"
+      if (maraData[0][0] == 'C' && !INVERSE_LOGIC || maraData[0][0] == '+') {  // [0] = Mode & Version number - Check first Character if 'C' or '+'
         // Coffee mode
         display.drawBitmap(115, 0, coffeeCup12, 12, 12, WHITE);  // Draw Coffee Cup Icon upper right
       } else {
